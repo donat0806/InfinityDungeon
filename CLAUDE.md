@@ -46,12 +46,21 @@ These rules come from the project plan and exist so that co-op and online play a
 
 - **Simulation is separate from presentation.** `src/sim` is plain C++ with no raylib. This is enforced by CMake: only `infinity_render`, `infinity_input` and the executable link raylib, so a raylib include in sim fails to compile. Don't work around this by linking raylib to `infinity_sim`.
 - **Input is data.** Each player produces a `PlayerInput` struct per tick (`src/input/PlayerInput.hpp`). Device code (keyboard now; gamepad and network later) only fills that struct, and the sim consumes it.
-- **Fixed timestep.** The sim advances at a constant tick rate, independent of frame rate. The current `main.cpp` loop is a placeholder that does not have this yet (roadmap item 2).
-- **Players are a collection.** Never assume a single player. Entities reference each other by ID, not raw pointers.
-- **Deterministic, seeded randomness.** Gameplay RNG lives in the game state; a seed plus an input sequence must reproduce a run exactly. Don't use `std::random_device`, wall-clock time, or global RNG in sim code. `tests/sim_determinism_test.cpp` guards this.
+- **Fixed timestep.** `sim::FixedTimestepClock` (`src/sim/FixedTimestep.*`) converts `main.cpp`'s variable real frame time into a whole number of fixed steps (60 Hz by default), capped per frame to avoid a stall snowballing into unbounded catch-up. `GameState::Tick` only ever advances by that fixed step.
+- **Players are a collection.** `sim::GameState` holds `players_` as a `vector<Player>`, each with a `PlayerId`; ticking looks players up by ID in an `unordered_map<PlayerId, PlayerInput>`, never by raw pointer.
+- **Deterministic, seeded randomness.** Gameplay RNG lives in the game state; a seed plus an input sequence must reproduce a run exactly. Don't use `std::random_device`, wall-clock time, or global RNG in sim code. `tests/sim_determinism_test.cpp` and `tests/game_state_test.cpp` guard this.
 - **Data-driven balance.** Enemy stats and difficulty scaling are meant to be loaded from config files, not hard-coded.
 
-Each `src/` folder is its own static library (`infinity_sim`, `infinity_input`, `infinity_render`, `infinity_net`) with `src/` as a public include directory, so includes are written as `"sim/DungeonSimulator.hpp"`. Code lives in namespaces `infinity_dungeon::<module>`. `render::Renderer` owns the raylib window (RAII).
+Each `src/` folder is its own static library (`infinity_sim`, `infinity_input`, `infinity_render`, `infinity_net`) with `src/` as a public include directory, so includes are written as `"sim/DungeonSimulator.hpp"`. Code lives in namespaces `infinity_dungeon::<module>`. `render::Renderer` only owns the raylib window and brackets each frame (`BeginFrame`/`EndFrame`); it has no drawing calls of its own.
+
+### Scene/state system (`src/app`)
+
+`infinity_app` orchestrates sim and presentation: it's the one module allowed to depend on all of `infinity_sim`, `infinity_render`, `infinity_input` and raylib directly (scenes draw with raylib calls rather than through `Renderer`).
+
+- `Scene` (`src/app/Scene.hpp`) is the interface: `Tick(fixed_dt, input)` returns the next scene to switch to (or `nullptr` to stay), `Draw(renderer)` draws the current frame.
+- `SceneManager` owns the current `Scene` and swaps it when `Tick` returns a new one, calling `OnExit()`/`OnEnter()` around the switch.
+- `MenuScene` and `PlayingScene` are the two scenes so far; `PlayingScene` owns a `sim::GameState` for the run. Add new scenes (e.g. a death screen) the same way, and wire the transition from whichever scene triggers it.
+- `main.cpp` is now just: read input → `clock.Advance(GetFrameTime())` fixed steps of `scenes.Tick` → one `scenes.Draw` between `renderer.BeginFrame()`/`EndFrame()`.
 
 ## Server
 

@@ -1,11 +1,9 @@
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
-
 namespace infinity_dungeon::render {
 
-// Owns the raylib window for its lifetime.
+// Owns the raylib window for its lifetime and brackets each frame.
+// Scenes draw their own content between BeginFrame() and EndFrame().
 class Renderer {
 public:
     Renderer(int width, int height, const char* title);
@@ -15,7 +13,9 @@ public:
     Renderer& operator=(const Renderer&) = delete;
 
     [[nodiscard]] bool ShouldClose() const;
-    void DrawFrame(std::uint32_t depth, std::size_t room_count) const;
+
+    void BeginFrame() const;
+    void EndFrame() const;
 };
 
 } // namespace infinity_dungeon::render

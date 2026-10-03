@@ -86,7 +86,7 @@ ctest --test-dir build --output-on-failure -C Release
 ## Roadmap
 
 - [x] Project skeleton: CMake, CI, first test
-- [ ] Fixed-timestep game loop and scene/state system
+- [x] Fixed-timestep game loop and scene/state system
 - [ ] Player movement and shooting
 - [ ] First enemy types
 - [ ] Procedural floor generation from a seed

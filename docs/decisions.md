@@ -47,3 +47,20 @@ Each `src/` folder is its own CMake library. Only `infinity_render`, `infinity_i
 - Keeps `GameState::Tick` deterministic and frame-rate independent, as the architecture rules require.
 - The cap trades a visible slowdown during a long stall for a bounded worst case, rather than the game freezing while it tries to catch up.
 - Exposes `Alpha()` for render interpolation later; unused for now since there's nothing yet to interpolate between ticks.
+
+## 2026-10-03: Twin-stick controls, `PlayerInput` split into move, aim and confirm
+
+Movement is WASD and shooting is the arrow keys (Isaac-style). `PlayerInput` now carries `move_x/y`, `aim_x/y` and `confirm`; the old `attack` flag is gone.
+
+- Aim is a vector, so a gamepad's right stick or a network packet fills the same fields as the keyboard. `(0, 0)` means not shooting.
+- `confirm` (Space/Enter) is for menus only, so UI input is not mixed up with gameplay input.
+- The sim normalizes move vectors longer than 1 (no faster diagonals) and clamps players to a fixed `Arena` rectangle, a stand-in until floor generation.
+- Per-player tunables live in `sim::PlayerStats` on each `Player`. Loading them from config files is deferred until the enemy step introduces more balance data.
+
+## 2026-10-03: Strict `-std=c++20` (no compiler extensions)
+
+`CMakeLists.txt` sets `CMAKE_CXX_EXTENSIONS OFF`, so GCC and Clang build with `-std=c++20` rather than `gnu++20`.
+
+- Code that only compiles with a compiler-specific extension fails locally instead of in CI on another platform.
+- Sources were also checked with `g++ -Wall -Wextra -pedantic` alongside the MSVC build; both are warning-free.
+- The sim uses C++20 designated initializers (e.g. `PlayerInput{.move_x = 1.0f}`), which keeps call sites readable as structs grow.

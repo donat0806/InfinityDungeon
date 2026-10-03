@@ -44,8 +44,9 @@ The project is built around a few rules, chosen so that co-op and online play ar
 InfinityDungeon/
 ├── src/
 │   ├── sim/          # game logic (no raylib)
-│   ├── render/       # drawing and audio (raylib)
+│   ├── render/       # window and frame handling (raylib)
 │   ├── input/        # device -> PlayerInput
+│   ├── app/          # scenes (menu, playing) tying sim, render and input together
 │   └── net/          # leaderboard client (and later, multiplayer)
 ├── server/           # leaderboard API (ASP.NET Core)
 ├── tests/            # unit and determinism tests
@@ -77,6 +78,14 @@ cmake --build build --config Release
 
 Then run the executable from the `build` folder (on Windows with MSVC: `build/Release/InfinityDungeon.exe`).
 
+### Controls
+
+| Action | Keys |
+|---|---|
+| Start a run | Space or Enter |
+| Move | W A S D |
+| Shoot | Arrow keys (hold two for diagonals) |
+
 ### Run the tests
 
 ```bash
@@ -87,7 +96,7 @@ ctest --test-dir build --output-on-failure -C Release
 
 - [x] Project skeleton: CMake, CI, first test
 - [x] Fixed-timestep game loop and scene/state system
-- [ ] Player movement and shooting
+- [x] Player movement and shooting
 - [ ] First enemy types
 - [ ] Procedural floor generation from a seed
 - [ ] Room clearing and locked doors

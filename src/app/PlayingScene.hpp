@@ -8,8 +8,8 @@
 namespace infinity_dungeon::app {
 
 // Drives one run: ticks the deterministic GameState at the fixed step and
-// draws its current contents. Movement, enemies, and depth progression are
-// filled in by later roadmap items; for now this proves the loop end to end.
+// draws its current contents (arena, players, projectiles). Enemies and
+// depth progression are filled in by later roadmap items.
 class PlayingScene final : public Scene {
 public:
     explicit PlayingScene(std::uint32_t seed);

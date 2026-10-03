@@ -18,7 +18,7 @@ TEST_CASE("GameState moves a player by its input, scaled by the fixed step") {
     GameState state(42);
     const PlayerId id = state.AddPlayer(0.0f, 0.0f);
 
-    const std::unordered_map<PlayerId, PlayerInput> inputs{{id, PlayerInput{1.0f, 0.0f, false}}};
+    const std::unordered_map<PlayerId, PlayerInput> inputs{{id, PlayerInput{.move_x = 1.0f}}};
     state.Tick(1.0f / 60.0f, inputs);
 
     REQUIRE(state.Players().size() == 1);
@@ -44,14 +44,23 @@ TEST_CASE("GameState ticking is deterministic for the same seed and inputs") {
     const PlayerId id_a = a.AddPlayer(0.0f, 0.0f);
     const PlayerId id_b = b.AddPlayer(0.0f, 0.0f);
 
-    const std::unordered_map<PlayerId, PlayerInput> inputs_a{{id_a, PlayerInput{0.5f, -1.0f, true}}};
-    const std::unordered_map<PlayerId, PlayerInput> inputs_b{{id_b, PlayerInput{0.5f, -1.0f, true}}};
+    const std::unordered_map<PlayerId, PlayerInput> inputs_a{
+        {id_a, PlayerInput{.move_x = 0.5f, .move_y = -1.0f, .aim_x = 1.0f, .aim_y = 0.5f}}};
+    const std::unordered_map<PlayerId, PlayerInput> inputs_b{
+        {id_b, PlayerInput{.move_x = 0.5f, .move_y = -1.0f, .aim_x = 1.0f, .aim_y = 0.5f}}};
 
-    for (int i = 0; i < 10; ++i) {
+    for (int i = 0; i < 60; ++i) {
         a.Tick(1.0f / 60.0f, inputs_a);
         b.Tick(1.0f / 60.0f, inputs_b);
     }
 
     CHECK(a.Players()[0].x == doctest::Approx(b.Players()[0].x));
     CHECK(a.Players()[0].y == doctest::Approx(b.Players()[0].y));
+
+    REQUIRE(a.Projectiles().size() == b.Projectiles().size());
+    for (std::size_t i = 0; i < a.Projectiles().size(); ++i) {
+        CHECK(a.Projectiles()[i].id == b.Projectiles()[i].id);
+        CHECK(a.Projectiles()[i].x == doctest::Approx(b.Projectiles()[i].x));
+        CHECK(a.Projectiles()[i].y == doctest::Approx(b.Projectiles()[i].y));
+    }
 }

@@ -6,11 +6,15 @@ namespace infinity_dungeon::input {
 
 PlayerInput ReadKeyboard() {
     PlayerInput input;
-    if (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT)) input.move_x -= 1.0f;
-    if (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) input.move_x += 1.0f;
-    if (IsKeyDown(KEY_W) || IsKeyDown(KEY_UP)) input.move_y -= 1.0f;
-    if (IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN)) input.move_y += 1.0f;
-    input.attack = IsKeyDown(KEY_SPACE);
+    if (IsKeyDown(KEY_A)) input.move_x -= 1.0f;
+    if (IsKeyDown(KEY_D)) input.move_x += 1.0f;
+    if (IsKeyDown(KEY_W)) input.move_y -= 1.0f;
+    if (IsKeyDown(KEY_S)) input.move_y += 1.0f;
+    if (IsKeyDown(KEY_LEFT)) input.aim_x -= 1.0f;
+    if (IsKeyDown(KEY_RIGHT)) input.aim_x += 1.0f;
+    if (IsKeyDown(KEY_UP)) input.aim_y -= 1.0f;
+    if (IsKeyDown(KEY_DOWN)) input.aim_y += 1.0f;
+    input.confirm = IsKeyDown(KEY_SPACE) || IsKeyDown(KEY_ENTER);
     return input;
 }
 

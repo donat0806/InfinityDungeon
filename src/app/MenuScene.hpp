@@ -7,7 +7,7 @@
 namespace infinity_dungeon::app {
 
 // Idle title screen. Starts a run with a fixed seed when the player presses
-// attack (space); seed selection can grow (random, seed entry, ...) later.
+// confirm (Space/Enter); seed selection can grow (random, seed entry, ...) later.
 class MenuScene final : public Scene {
 public:
     explicit MenuScene(std::uint32_t run_seed);

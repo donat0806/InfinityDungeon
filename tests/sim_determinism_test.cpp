@@ -1,21 +1,40 @@
-#include "../src/sim/DungeonSimulator.hpp"
+#include "sim/DungeonSimulator.hpp"
 
-int main() {
-    const infinity_dungeon::sim::DungeonSimulator a(42);
-    const infinity_dungeon::sim::DungeonSimulator b(42);
+#include <doctest/doctest.h>
+
+using infinity_dungeon::sim::DungeonSimulator;
+using infinity_dungeon::sim::Room;
+
+namespace {
+
+bool SameRooms(const std::vector<Room>& a, const std::vector<Room>& b) {
+    if (a.size() != b.size()) {
+        return false;
+    }
+    for (std::size_t i = 0; i < a.size(); ++i) {
+        if (a[i].id != b[i].id || a[i].difficulty != b[i].difficulty) {
+            return false;
+        }
+    }
+    return true;
+}
+
+} // namespace
+
+TEST_CASE("same seed and depth produce identical levels") {
+    const DungeonSimulator a(42);
+    const DungeonSimulator b(42);
 
     const auto level_a = a.GenerateLevel(7);
     const auto level_b = b.GenerateLevel(7);
 
-    if (level_a.size() != level_b.size()) {
-        return 1;
-    }
+    REQUIRE_FALSE(level_a.empty());
+    CHECK(SameRooms(level_a, level_b));
+}
 
-    for (std::size_t i = 0; i < level_a.size(); ++i) {
-        if (level_a[i].id != level_b[i].id || level_a[i].difficulty != level_b[i].difficulty) {
-            return 1;
-        }
-    }
+TEST_CASE("different seeds produce different levels") {
+    const DungeonSimulator a(42);
+    const DungeonSimulator b(1337);
 
-    return 0;
+    CHECK_FALSE(SameRooms(a.GenerateLevel(7), b.GenerateLevel(7)));
 }

@@ -5,6 +5,11 @@ services:
       POSTGRES_DB: infinitydungeon
       POSTGRES_USER: postgres
       POSTGRES_HOST_AUTH_METHOD: trust
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d infinitydungeon"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     ports:
       - "5432:5432"
     volumes:
@@ -17,7 +22,8 @@ services:
       ASPNETCORE_URLS: http://+:8080
       POSTGRES_CONNECTION: Host=db;Port=5432;Database=infinitydungeon;Username=postgres
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     ports:
       - "8080:8080"
 

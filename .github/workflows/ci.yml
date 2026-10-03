@@ -4,11 +4,40 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
-  build-and-test:
+  game:
+    name: Game (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install raylib dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libgl1-mesa-dev
+
+      - name: Configure CMake
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Run tests
+        run: ctest --test-dir build --output-on-failure -C Release
+
+  server:
+    name: Server
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
 
     steps:
       - name: Checkout
@@ -18,15 +47,6 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
-
-      - name: Configure CMake
-        run: cmake -S . -B build
-
-      - name: Build C++
-        run: cmake --build build --config Release
-
-      - name: Run C++ tests
-        run: ctest --test-dir build --output-on-failure
 
       - name: Restore server
         run: dotnet restore server/InfinityDungeon.Server.csproj

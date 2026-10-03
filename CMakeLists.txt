@@ -18,20 +18,26 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(raylib)
 
 # Game modules. Only render and input may link raylib; sim must stay raylib-free.
-add_library(infinity_sim src/sim/DungeonSimulator.cpp)
+add_library(infinity_sim src/sim/DungeonSimulator.cpp src/sim/FixedTimestep.cpp src/sim/GameState.cpp)
 add_library(infinity_input src/input/PlayerInput.cpp)
 add_library(infinity_render src/render/Renderer.cpp)
 add_library(infinity_net src/net/LeaderboardClient.cpp)
 
-foreach(module infinity_sim infinity_input infinity_render infinity_net)
+# Orchestration layer: ties sim, render and input together via a scene
+# stack. Not simulation itself, so it may depend on raylib directly for
+# scene drawing.
+add_library(infinity_app src/app/SceneManager.cpp src/app/MenuScene.cpp src/app/PlayingScene.cpp)
+
+foreach(module infinity_sim infinity_input infinity_render infinity_net infinity_app)
     target_include_directories(${module} PUBLIC ${PROJECT_SOURCE_DIR}/src)
 endforeach()
 
 target_link_libraries(infinity_input PUBLIC raylib)
 target_link_libraries(infinity_render PUBLIC raylib)
+target_link_libraries(infinity_app PUBLIC infinity_sim infinity_render infinity_input raylib)
 
 add_executable(InfinityDungeon src/main.cpp)
-target_link_libraries(InfinityDungeon PRIVATE infinity_sim infinity_input infinity_render infinity_net raylib)
+target_link_libraries(InfinityDungeon PRIVATE infinity_app infinity_sim infinity_input infinity_render infinity_net raylib)
 
 if(BUILD_TESTING)
     FetchContent_Declare(
@@ -42,7 +48,7 @@ if(BUILD_TESTING)
     )
     FetchContent_MakeAvailable(doctest)
 
-    add_executable(infinity_tests tests/test_main.cpp tests/sim_determinism_test.cpp)
+    add_executable(infinity_tests tests/test_main.cpp tests/sim_determinism_test.cpp tests/fixed_timestep_test.cpp tests/game_state_test.cpp)
     target_link_libraries(infinity_tests PRIVATE infinity_sim doctest::doctest)
     # Avoids doctest forward-declaring std types, which newer MSVC warns about (C5285).
     target_compile_definitions(infinity_tests PRIVATE DOCTEST_CONFIG_USE_STD_HEADERS)

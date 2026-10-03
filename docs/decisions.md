@@ -31,3 +31,19 @@ Each `src/` folder is its own CMake library. Only `infinity_render`, `infinity_i
 - IDEs (VS Code, Visual Studio, CLion) pick these up automatically.
 - The plain `cmake -B build` workflow still works.
 - Personal overrides go in the git-ignored `CMakeUserPresets.json`.
+
+## 2026-10-03: New `infinity_app` module for the scene/state system
+
+`src/app` owns `Scene`, `SceneManager`, and the concrete scenes (`MenuScene`, `PlayingScene`). It links `infinity_sim`, `infinity_render`, `infinity_input`, and raylib directly, so scenes can draw with raylib calls.
+
+- `Scene`/`SceneManager` orchestrate sim and presentation together; they are neither pure simulation nor a rendering primitive, so they didn't fit in an existing module.
+- Giving scenes direct raylib access (rather than growing `Renderer` into a generic drawing API) keeps `Renderer` a thin window/frame owner and lets scene-specific drawing (HUD, menu text, later: camera, sprites) live next to the scene it belongs to.
+- `infinity_sim` still never links raylib; only this orchestration layer and `infinity_render`/`infinity_input` do.
+
+## 2026-10-03: Fixed-timestep loop via a dedicated clock
+
+`sim::FixedTimestepClock` turns raylib's variable `GetFrameTime()` into a whole number of fixed-size steps per frame (default 60 Hz), capped at 5 steps per call to avoid a stall snowballing into unbounded catch-up simulation ("spiral of death").
+
+- Keeps `GameState::Tick` deterministic and frame-rate independent, as the architecture rules require.
+- The cap trades a visible slowdown during a long stall for a bounded worst case, rather than the game freezing while it tries to catch up.
+- Exposes `Alpha()` for render interpolation later; unused for now since there's nothing yet to interpolate between ticks.

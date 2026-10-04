@@ -25,6 +25,7 @@ A top-down, room-based dungeon crawler inspired by *The Binding of Isaac*, writt
 |---|---|
 | Game | C++ (C++20), [raylib](https://www.raylib.com/) |
 | Build | CMake, CMakePresets |
+| Config | JSON, parsed with [nlohmann/json](https://github.com/nlohmann/json) |
 | Tests | CTest with a C++ test framework (Catch2 / doctest) |
 | Leaderboard API | ASP.NET Core (C#), PostgreSQL |
 | CI | GitHub Actions (Windows and Linux) |
@@ -48,6 +49,7 @@ InfinityDungeon/
 │   ├── input/        # device -> PlayerInput
 │   ├── app/          # scenes (menu, playing) tying sim, render and input together
 │   └── net/          # leaderboard client (and later, multiplayer)
+├── config/           # balance data (enemies.json), copied next to the executable
 ├── server/           # leaderboard API (ASP.NET Core)
 ├── tests/            # unit and determinism tests
 ├── assets/
@@ -65,7 +67,7 @@ InfinityDungeon/
 - A C++20 compiler: MSVC (Visual Studio 2022+ or Build Tools), GCC, or Clang
 - Git
 
-raylib is fetched automatically by CMake, so you don't need to install it yourself.
+raylib and nlohmann/json are fetched automatically by CMake, so you don't need to install them yourself.
 
 ### Build and run
 
@@ -97,7 +99,7 @@ ctest --test-dir build --output-on-failure -C Release
 - [x] Project skeleton: CMake, CI, first test
 - [x] Fixed-timestep game loop and scene/state system
 - [x] Player movement and shooting
-- [ ] First enemy types
+- [x] First enemy types
 - [ ] Procedural floor generation from a seed
 - [ ] Room clearing and locked doors
 - [ ] Depth-based difficulty scaling
@@ -114,7 +116,7 @@ I'm building this project with AI assistance (Claude Code) as part of my workflo
 
 ## License
 
-To be decided (MIT is a common choice for portfolio projects).
+MIT
 
 ## Author
 

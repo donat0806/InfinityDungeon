@@ -1,0 +1,32 @@
+{
+  "enemies": {
+    "chaser": {
+      "max_health": 3,
+      "move_speed": 90,
+      "radius": 14,
+      "contact_damage": 1
+    },
+    "shooter": {
+      "max_health": 2,
+      "move_speed": 60,
+      "radius": 12,
+      "contact_damage": 1,
+      "preferred_distance": 250,
+      "fire_interval": 1.5,
+      "projectile_speed": 220,
+      "projectile_damage": 1,
+      "projectile_lifetime": 3,
+      "projectile_radius": 6
+    },
+    "patroller": {
+      "max_health": 4,
+      "move_speed": 130,
+      "radius": 16,
+      "contact_damage": 1
+    }
+  },
+  "wave": {
+    "count": 6,
+    "min_spawn_distance": 200
+  }
+}

@@ -6,11 +6,12 @@
 
 namespace infinity_dungeon::app {
 
-MenuScene::MenuScene(std::uint32_t run_seed) : run_seed_(run_seed) {}
+MenuScene::MenuScene(std::uint32_t run_seed, sim::EnemyConfig enemy_config)
+    : run_seed_(run_seed), enemy_config_(enemy_config) {}
 
 std::unique_ptr<Scene> MenuScene::Tick(float /*fixed_dt*/, const input::PlayerInput& input) {
     if (input.confirm) {
-        return std::make_unique<PlayingScene>(run_seed_);
+        return std::make_unique<PlayingScene>(run_seed_, enemy_config_);
     }
     return nullptr;
 }

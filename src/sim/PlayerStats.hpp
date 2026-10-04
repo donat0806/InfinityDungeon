@@ -12,6 +12,9 @@ struct PlayerStats {
     float projectile_speed = 450.0f;    // units per second
     float projectile_lifetime = 0.9f;   // seconds
     float projectile_radius = 5.0f;
+    int max_health = 6;
+    int projectile_damage = 1;
+    float invulnerability_duration = 1.0f; // seconds of immunity after taking a hit
 };
 
 } // namespace infinity_dungeon::sim

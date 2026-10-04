@@ -55,7 +55,7 @@ Movement is WASD and shooting is the arrow keys (Isaac-style). `PlayerInput` now
 - Aim is a vector, so a gamepad's right stick or a network packet fills the same fields as the keyboard. `(0, 0)` means not shooting.
 - `confirm` (Space/Enter) is for menus only, so UI input is not mixed up with gameplay input.
 - The sim normalizes move vectors longer than 1 (no faster diagonals) and clamps players to a fixed `Arena` rectangle, a stand-in until floor generation.
-- Per-player tunables live in `sim::PlayerStats` on each `Player`. Loading them from config files is deferred until the enemy step introduces more balance data.
+- Per-player tunables live in `sim::PlayerStats` on each `Player`. Loading them from config files was deferred past this step; enemy stats are the first to be data-driven (see the 2026-10-04 entry).
 
 ## 2026-10-03: Strict `-std=c++20` (no compiler extensions)
 
@@ -64,3 +64,21 @@ Movement is WASD and shooting is the arrow keys (Isaac-style). `PlayerInput` now
 - Code that only compiles with a compiler-specific extension fails locally instead of in CI on another platform.
 - Sources were also checked with `g++ -Wall -Wextra -pedantic` alongside the MSVC build; both are warning-free.
 - The sim uses C++20 designated initializers (e.g. `PlayerInput{.move_x = 1.0f}`), which keeps call sites readable as structs grow.
+
+## 2026-10-04: Enemy balance loaded from JSON with nlohmann/json
+
+Enemy stats and wave settings live in `config/enemies.json`, parsed by `sim::ParseEnemyConfig` (`src/sim/EnemyConfig.*`) with nlohmann/json (v3.11.3, fetched by CMake, linked privately to `infinity_sim`, no raylib).
+
+- Satisfies the data-driven balance rule: tuning needs no recompile. CMake copies `config/` next to the executable after each build.
+- The built-in member defaults of `EnemyConfig` are the fallback: missing JSON fields keep their defaults, so the sim and tests need no file. A missing or broken file makes `main.cpp` log to stderr and use the defaults.
+- Parsing is a pure string function (the file reader is a thin wrapper), so it is unit-tested without touching the disk.
+- Player stats stay hard-coded in `PlayerStats` for now.
+- The sim has its own PCG32 `sim::Rng`, seeded from the run seed, instead of `<random>` distributions, whose output may differ between standard libraries and break cross-platform determinism.
+
+## 2026-10-04: Projectile factions; dead players stay in the collection
+
+Projectiles carry a `Faction` (Player or Enemy) and a `damage` value, so one projectile type and one collision pass serve both sides. Factions never hurt their own side.
+
+- A player at 0 health stays in `players_` (so `PlayerId`s stay stable and a later co-op revive is possible) but ignores input and is not targeted. `GameState::AllPlayersDead()` drives `PlayingScene`'s return to the menu until a proper death screen exists.
+- Players get brief invulnerability after each hit, so contact damage doesn't drain health every tick.
+- Enemies are spawned as one seeded wave at run start; wave respawning and room-based spawning wait for floor generation.

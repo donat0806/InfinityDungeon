@@ -2,13 +2,15 @@
 
 #include "input/PlayerInput.hpp"
 #include "sim/Arena.hpp"
-#include "sim/DungeonSimulator.hpp"
 #include "sim/Enemy.hpp"
 #include "sim/EnemyConfig.hpp"
+#include "sim/Floor.hpp"
+#include "sim/FloorConfig.hpp"
 #include "sim/PlayerStats.hpp"
 #include "sim/Rng.hpp"
 
 #include <cstdint>
+#include <optional>
 #include <unordered_map>
 #include <vector>
 
@@ -45,7 +47,7 @@ struct Projectile {
 };
 
 // Holds everything a run needs to be deterministic: the seed, the current
-// level, and the players, addressed by ID rather than by pointer or index
+// floor and room, and the players, addressed by ID rather than by pointer or index
 // so entities can be added, removed, or sent over the network later
 // without invalidating references held elsewhere.
 //
@@ -53,21 +55,28 @@ struct Projectile {
 // same seed and the same sequence of inputs always produce the same run.
 class GameState {
 public:
-    explicit GameState(std::uint32_t seed, EnemyConfig config = EnemyConfig{});
+    explicit GameState(std::uint32_t seed, EnemyConfig config = EnemyConfig{},
+                       FloorConfig floor_config = FloorConfig{});
 
     PlayerId AddPlayer(float x, float y);
 
     // Adds one enemy of the given kind. Patrollers get a seeded diagonal heading.
     EnemyId SpawnEnemy(EnemyKind kind, float x, float y);
 
-    // Spawns config.wave.count enemies at seeded positions away from the players.
-    // Call after adding players.
-    void SpawnInitialWave();
+    // Spawns config.wave.count enemies in the current room at seeded positions
+    // away from the players. Happens automatically on first entry to a room
+    // other than the start room; also callable directly (e.g. by tests).
+    void SpawnWave();
 
     void Tick(float fixed_dt, const std::unordered_map<PlayerId, input::PlayerInput>& inputs);
 
     [[nodiscard]] std::uint32_t Depth() const { return depth_; }
-    [[nodiscard]] const std::vector<Room>& Rooms() const { return rooms_; }
+    [[nodiscard]] const Floor& CurrentFloor() const { return floor_; }
+    [[nodiscard]] RoomId CurrentRoomId() const { return current_room_; }
+    [[nodiscard]] const Room& CurrentRoom() const { return floor_.rooms[current_room_]; }
+    [[nodiscard]] bool Visited(RoomId id) const { return visited_[id]; }
+    // The exit hatch is usable once the exit room has been cleared.
+    [[nodiscard]] bool HatchOpen() const { return current_room_ == floor_.exit && enemies_.empty(); }
     [[nodiscard]] const std::vector<Player>& Players() const { return players_; }
     [[nodiscard]] const std::vector<Projectile>& Projectiles() const { return projectiles_; }
     [[nodiscard]] const std::vector<Enemy>& Enemies() const { return enemies_; }
@@ -81,11 +90,20 @@ private:
     void TickEnemies(float fixed_dt);
     void TickProjectiles(float fixed_dt);
     void ResolveCollisions();
+    // Keeps a player inside the room except through doors; returns the side
+    // whose door the player's center has crossed, if any.
+    std::optional<Direction> ConstrainToRoom(Player& player) const;
+    void EnterRoom(Direction through);
+    void StartFloor();
+    void CheckHatch();
 
     std::uint32_t seed_;
     std::uint32_t depth_ = 1;
-    DungeonSimulator simulator_;
-    std::vector<Room> rooms_;
+    FloorConfig floor_config_;
+    Floor floor_;
+    RoomId current_room_ = 0;
+    std::vector<bool> visited_;
+    std::vector<std::vector<Enemy>> stashed_enemies_; // per room, for rooms left mid-fight
     Arena arena_;
     Rng rng_;
     EnemyConfig config_;

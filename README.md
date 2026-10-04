@@ -49,7 +49,7 @@ InfinityDungeon/
 │   ├── input/        # device -> PlayerInput
 │   ├── app/          # scenes (menu, playing) tying sim, render and input together
 │   └── net/          # leaderboard client (and later, multiplayer)
-├── config/           # balance data (enemies.json), copied next to the executable
+├── config/           # balance and layout data (enemies.json, floor.json), copied next to the executable
 ├── server/           # leaderboard API (ASP.NET Core)
 ├── tests/            # unit and determinism tests
 ├── assets/
@@ -100,7 +100,7 @@ ctest --test-dir build --output-on-failure -C Release
 - [x] Fixed-timestep game loop and scene/state system
 - [x] Player movement and shooting
 - [x] First enemy types
-- [ ] Procedural floor generation from a seed
+- [x] Procedural floor generation from a seed
 - [ ] Room clearing and locked doors
 - [ ] Depth-based difficulty scaling
 - [ ] Death screen and score

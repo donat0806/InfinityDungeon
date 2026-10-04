@@ -1,5 +1,7 @@
 #include "GameState.hpp"
 
+#include "sim/FloorGenerator.hpp"
+
 #include <algorithm>
 #include <cmath>
 
@@ -52,6 +54,40 @@ const Player* NearestLivingPlayer(const std::vector<Player>& players, float x, f
     return best;
 }
 
+// Pushes overlapping enemies apart (half the overlap each) so they don't stack
+// on one another. One pass in index order, so the result is deterministic.
+void SeparateEnemies(std::vector<Enemy>& enemies, const Arena& arena) {
+    for (std::size_t i = 0; i < enemies.size(); ++i) {
+        for (std::size_t j = i + 1; j < enemies.size(); ++j) {
+            Enemy& a = enemies[i];
+            Enemy& b = enemies[j];
+            float dx = b.x - a.x;
+            float dy = b.y - a.y;
+            const float reach = a.stats.radius + b.stats.radius;
+            const float dist2 = dx * dx + dy * dy;
+            if (dist2 >= reach * reach) {
+                continue;
+            }
+            float dist = std::sqrt(dist2);
+            if (dist <= 0.0001f) {
+                dx = 1.0f; // exactly stacked: split along x
+                dy = 0.0f;
+                dist = 0.0f;
+            } else {
+                dx /= dist;
+                dy /= dist;
+            }
+            const float push = (reach - dist) * 0.5f;
+            a.x -= dx * push;
+            a.y -= dy * push;
+            b.x += dx * push;
+            b.y += dy * push;
+            ClampToArena(arena, a.stats.radius, a.x, a.y);
+            ClampToArena(arena, b.stats.radius, b.x, b.y);
+        }
+    }
+}
+
 void DamagePlayer(Player& player, int damage) {
     player.health = std::max(0, player.health - damage);
     player.invulnerable_time = player.stats.invulnerability_duration;
@@ -59,12 +95,17 @@ void DamagePlayer(Player& player, int damage) {
 
 } // namespace
 
-GameState::GameState(std::uint32_t seed, EnemyConfig config)
+GameState::GameState(std::uint32_t seed, EnemyConfig config, FloorConfig floor_config)
     : seed_(seed),
-      simulator_(seed),
-      rooms_(simulator_.GenerateLevel(depth_)),
+      floor_config_(floor_config),
+      floor_(GenerateFloor(seed, depth_, floor_config_)),
       rng_(seed ^ 0x9E3779B9u, 77u),
-      config_(config) {}
+      config_(config) {
+    current_room_ = floor_.start;
+    visited_.assign(floor_.rooms.size(), false);
+    visited_[current_room_] = true;
+    stashed_enemies_.resize(floor_.rooms.size());
+}
 
 PlayerId GameState::AddPlayer(float x, float y) {
     const PlayerId id = next_player_id_++;
@@ -90,7 +131,7 @@ EnemyId GameState::SpawnEnemy(EnemyKind kind, float x, float y) {
     return enemy.id;
 }
 
-void GameState::SpawnInitialWave() {
+void GameState::SpawnWave() {
     for (int i = 0; i < config_.wave.count; ++i) {
         const auto kind = static_cast<EnemyKind>(rng_.NextIndex(kEnemyKindCount));
         const float radius = config_.For(kind).radius;
@@ -120,11 +161,131 @@ void GameState::Tick(float fixed_dt, const std::unordered_map<PlayerId, input::P
     TickEnemies(fixed_dt);
     TickProjectiles(fixed_dt);
     ResolveCollisions();
+    CheckHatch();
+}
+
+std::optional<Direction> GameState::ConstrainToRoom(Player& player) const {
+    const Room& room = floor_.rooms[current_room_];
+    const float r = player.stats.radius;
+    const float span = arena_.door_half_width - r;
+    const float lo_x = arena_.min_x + r;
+    const float hi_x = arena_.max_x - r;
+    const float lo_y = arena_.min_y + r;
+    const float hi_y = arena_.max_y - r;
+
+    // A door is passable only while the player is lined up with it.
+    const bool in_x_door = std::abs(player.y) <= span;
+    const bool in_y_door = std::abs(player.x) <= span;
+    if (!(room.HasDoor(Direction::West) && in_x_door)) {
+        player.x = std::max(player.x, lo_x);
+    }
+    if (!(room.HasDoor(Direction::East) && in_x_door)) {
+        player.x = std::min(player.x, hi_x);
+    }
+    if (!(room.HasDoor(Direction::North) && in_y_door)) {
+        player.y = std::max(player.y, lo_y);
+    }
+    if (!(room.HasDoor(Direction::South) && in_y_door)) {
+        player.y = std::min(player.y, hi_y);
+    }
+    // Inside a doorway, stay within the door's width so corners can't be clipped.
+    if (player.x < lo_x || player.x > hi_x) {
+        player.y = std::clamp(player.y, -span, span);
+    }
+    if (player.y < lo_y || player.y > hi_y) {
+        player.x = std::clamp(player.x, -span, span);
+    }
+
+    if (player.x > arena_.max_x) {
+        return Direction::East;
+    }
+    if (player.x < arena_.min_x) {
+        return Direction::West;
+    }
+    if (player.y > arena_.max_y) {
+        return Direction::South;
+    }
+    if (player.y < arena_.min_y) {
+        return Direction::North;
+    }
+    return std::nullopt;
+}
+
+void GameState::EnterRoom(Direction through) {
+    const auto next = floor_.Neighbor(current_room_, through);
+    if (!next) {
+        return;
+    }
+    stashed_enemies_[current_room_] = std::move(enemies_);
+    enemies_.clear();
+    projectiles_.clear();
+    current_room_ = *next;
+
+    // The whole party arrives together, just inside the opposite door.
+    constexpr float kInset = 8.0f;
+    for (auto& player : players_) {
+        const float r = player.stats.radius;
+        const float span = arena_.door_half_width - r;
+        switch (Opposite(through)) {
+        case Direction::West:
+            player.x = arena_.min_x + r + kInset;
+            player.y = std::clamp(player.y, -span, span);
+            break;
+        case Direction::East:
+            player.x = arena_.max_x - r - kInset;
+            player.y = std::clamp(player.y, -span, span);
+            break;
+        case Direction::North:
+            player.y = arena_.min_y + r + kInset;
+            player.x = std::clamp(player.x, -span, span);
+            break;
+        case Direction::South:
+            player.y = arena_.max_y - r - kInset;
+            player.x = std::clamp(player.x, -span, span);
+            break;
+        }
+    }
+
+    if (visited_[current_room_]) {
+        enemies_ = std::move(stashed_enemies_[current_room_]);
+        stashed_enemies_[current_room_].clear();
+    } else {
+        visited_[current_room_] = true;
+        SpawnWave();
+    }
+}
+
+void GameState::StartFloor() {
+    floor_ = GenerateFloor(seed_, depth_, floor_config_);
+    current_room_ = floor_.start;
+    visited_.assign(floor_.rooms.size(), false);
+    visited_[current_room_] = true;
+    stashed_enemies_.assign(floor_.rooms.size(), {});
+    enemies_.clear();
+    projectiles_.clear();
+    for (auto& player : players_) {
+        player.x = 0.0f;
+        player.y = 0.0f;
+    }
+}
+
+void GameState::CheckHatch() {
+    if (!HatchOpen()) {
+        return;
+    }
+    const bool stepped_on = std::any_of(players_.begin(), players_.end(), [&](const Player& player) {
+        return player.Alive() && Overlaps(player.x, player.y, player.stats.radius, 0.0f, 0.0f, arena_.hatch_radius);
+    });
+    if (stepped_on) {
+        ++depth_;
+        StartFloor();
+    }
 }
 
 void GameState::TickPlayers(float fixed_dt, const std::unordered_map<PlayerId, input::PlayerInput>& inputs) {
     // Iterate players_ (not the input map) so the order, and therefore the
     // order projectiles are spawned in, is deterministic.
+    std::optional<Direction> crossed;
     for (auto& player : players_) {
         player.fire_cooldown = std::max(0.0f, player.fire_cooldown - fixed_dt);
         player.invulnerable_time = std::max(0.0f, player.invulnerable_time - fixed_dt);
@@ -144,7 +305,9 @@ void GameState::TickPlayers(float fixed_dt, const std::unordered_map<PlayerId, i
         ClampLength(move_x, move_y);
         player.x += move_x * stats.move_speed * fixed_dt;
         player.y += move_y * stats.move_speed * fixed_dt;
-        ClampToArena(arena_, stats.radius, player.x, player.y);
+        if (const auto side = ConstrainToRoom(player); side && !crossed) {
+            crossed = side;
+        }
 
         if ((input.aim_x == 0.0f && input.aim_y == 0.0f) || player.fire_cooldown > 0.0f) {
             continue;
@@ -168,6 +331,10 @@ void GameState::TickPlayers(float fixed_dt, const std::unordered_map<PlayerId, i
             .damage = stats.projectile_damage,
         });
         player.fire_cooldown = stats.fire_interval;
+    }
+
+    if (crossed) {
+        EnterRoom(*crossed);
     }
 }
 
@@ -237,6 +404,7 @@ void GameState::TickEnemies(float fixed_dt) {
         }
         ClampToArena(arena_, stats.radius, enemy.x, enemy.y);
     }
+    SeparateEnemies(enemies_, arena_);
 }
 
 void GameState::TickProjectiles(float fixed_dt) {

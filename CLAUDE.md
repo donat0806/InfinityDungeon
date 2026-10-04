@@ -52,7 +52,7 @@ These rules come from the project plan and exist so that co-op and online play a
 - **Data-driven balance.** Enemy stats and difficulty scaling are meant to be loaded from config files, not hard-coded. Enemy stats and wave size live in `config/enemies.json` (parsed by `sim::ParseEnemyConfig` with nlohmann/json; `EnemyConfig` member defaults are the fallback). CMake copies `config/` next to the executable, so edit the source copy and rebuild, or edit the copy in `build/<Config>/config/` for quick tuning. Player stats are still hard-coded in `PlayerStats`.
 - **Sim RNG.** Use `sim::Rng` (PCG32, `src/sim/Rng.hpp`), not `<random>` distributions, whose output can differ across standard libraries.
 
-Each `src/` folder is its own static library (`infinity_sim`, `infinity_input`, `infinity_render`, `infinity_net`) with `src/` as a public include directory, so includes are written as `"sim/DungeonSimulator.hpp"`. Code lives in namespaces `infinity_dungeon::<module>`. `render::Renderer` only owns the raylib window and brackets each frame (`BeginFrame`/`EndFrame`); it has no drawing calls of its own.
+Each `src/` folder is its own static library (`infinity_sim`, `infinity_input`, `infinity_render`, `infinity_net`) with `src/` as a public include directory, so includes are written as `"sim/GameState.hpp"`. Code lives in namespaces `infinity_dungeon::<module>`. `render::Renderer` only owns the raylib window and brackets each frame (`BeginFrame`/`EndFrame`); it has no drawing calls of its own.
 
 ### Scene/state system (`src/app`)
 

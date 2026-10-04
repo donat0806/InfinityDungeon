@@ -27,7 +27,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(nlohmann_json)
 
 # Game modules. Only render and input may link raylib; sim must stay raylib-free.
-add_library(infinity_sim src/sim/DungeonSimulator.cpp src/sim/EnemyConfig.cpp src/sim/FixedTimestep.cpp src/sim/GameState.cpp)
+add_library(infinity_sim src/sim/EnemyConfig.cpp src/sim/FixedTimestep.cpp src/sim/FloorConfig.cpp src/sim/FloorGenerator.cpp src/sim/GameState.cpp)
 add_library(infinity_input src/input/PlayerInput.cpp)
 add_library(infinity_render src/render/Renderer.cpp)
 add_library(infinity_net src/net/LeaderboardClient.cpp)
@@ -64,7 +64,7 @@ if(BUILD_TESTING)
     )
     FetchContent_MakeAvailable(doctest)
 
-    add_executable(infinity_tests tests/test_main.cpp tests/sim_determinism_test.cpp tests/fixed_timestep_test.cpp tests/game_state_test.cpp tests/player_combat_test.cpp tests/enemy_test.cpp tests/enemy_config_test.cpp)
+    add_executable(infinity_tests tests/test_main.cpp tests/fixed_timestep_test.cpp tests/game_state_test.cpp tests/player_combat_test.cpp tests/enemy_test.cpp tests/enemy_config_test.cpp tests/floor_generator_test.cpp tests/floor_config_test.cpp tests/floor_navigation_test.cpp)
     target_compile_features(infinity_tests PRIVATE cxx_std_20)
     target_link_libraries(infinity_tests PRIVATE infinity_sim doctest::doctest)
     # Avoids doctest forward-declaring std types, which newer MSVC warns about (C5285).

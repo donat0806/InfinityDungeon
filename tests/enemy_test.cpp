@@ -182,7 +182,7 @@ TEST_CASE("the initial wave spawns the configured count away from the player") {
     config.wave.min_spawn_distance = 200.0f;
     GameState state(7, config);
     state.AddPlayer(0.0f, 0.0f);
-    state.SpawnInitialWave();
+    state.SpawnWave();
 
     REQUIRE(state.Enemies().size() == 12);
     for (const auto& enemy : state.Enemies()) {
@@ -194,7 +194,7 @@ TEST_CASE("the initial wave is deterministic per seed and differs between seeds"
     auto wave = [](std::uint32_t seed) {
         GameState state(seed);
         state.AddPlayer(0.0f, 0.0f);
-        state.SpawnInitialWave();
+        state.SpawnWave();
         return std::vector(state.Enemies());
     };
 
@@ -214,4 +214,22 @@ TEST_CASE("the initial wave is deterministic per seed and differs between seeds"
         differs = a[i].kind != c[i].kind || a[i].x != c[i].x || a[i].y != c[i].y;
     }
     CHECK(differs);
+}
+
+TEST_CASE("enemies do not overlap each other, even when spawned on the same spot") {
+    GameState state(1);
+    const PlayerId id = state.AddPlayer(0.0f, 0.0f);
+    for (int i = 0; i < 5; ++i) {
+        state.SpawnEnemy(EnemyKind::Chaser, 200.0f, 100.0f);
+    }
+
+    TickN(state, id, PlayerInput{}, 120);
+
+    const auto& enemies = state.Enemies();
+    for (std::size_t i = 0; i < enemies.size(); ++i) {
+        for (std::size_t j = i + 1; j < enemies.size(); ++j) {
+            const float reach = enemies[i].stats.radius + enemies[j].stats.radius;
+            CHECK(Distance(enemies[i].x, enemies[i].y, enemies[j].x, enemies[j].y) >= reach - 2.0f);
+        }
+    }
 }

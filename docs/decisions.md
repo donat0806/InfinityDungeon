@@ -82,3 +82,15 @@ Projectiles carry a `Faction` (Player or Enemy) and a `damage` value, so one pro
 - A player at 0 health stays in `players_` (so `PlayerId`s stay stable and a later co-op revive is possible) but ignores input and is not targeted. `GameState::AllPlayersDead()` drives `PlayingScene`'s return to the menu until a proper death screen exists.
 - Players get brief invulnerability after each hit, so contact damage doesn't drain health every tick.
 - Enemies are spawned as one seeded wave at run start; wave respawning and room-based spawning wait for floor generation.
+
+## 2026-10-04: Grid-based floor generation; rooms stashed per room; party moves together
+
+`sim::GenerateFloor(seed, depth, FloorConfig)` (`src/sim/FloorGenerator.*`) builds each floor as a tree of rooms on a grid, replacing the `DungeonSimulator` stub. Layout size comes from `config/floor.json` (`FloorConfig`, same defaults-as-fallback pattern as enemies).
+
+- Pure function with its own RNG stream per depth (`Rng(seed, 1000 + depth)`): same seed and depth give the same floor, and descending never depends on what happened in the previous floor.
+- Frontier growth from the grid center, adding only cells that touch exactly one existing room, so floors are loop-free with branching dead ends. Growth that gets stuck is retried (bounded), so the default config always reaches `room_count`.
+- The exit is the dead end farthest from the start (by door distance), so reaching it means exploring.
+- All rooms share one size (`Arena`), with a door in the middle of each wall. Doors are always open for now; locking them until a room is cleared is the next roadmap item.
+- Enemies spawn on first entry to a room (not the start room). Leaving a room mid-fight stashes its enemies, and they are restored on return rather than respawned. Projectiles are dropped on a room change.
+- Every player moves to the new room together and arrives just inside the opposite door, which keeps local co-op simple (no split-screen or per-player rooms).
+- Descending is a hatch in the middle of the exit room, usable once its enemies are dead. Depth feeds only the generator for now; difficulty scaling is a later item.

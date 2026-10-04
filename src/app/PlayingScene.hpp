@@ -2,6 +2,7 @@
 
 #include "app/Scene.hpp"
 #include "sim/EnemyConfig.hpp"
+#include "sim/FloorConfig.hpp"
 #include "sim/GameState.hpp"
 
 #include <cstdint>
@@ -14,15 +15,19 @@ namespace infinity_dungeon::app {
 // later roadmap items.
 class PlayingScene final : public Scene {
 public:
-    PlayingScene(std::uint32_t seed, sim::EnemyConfig enemy_config);
+    PlayingScene(std::uint32_t seed, sim::EnemyConfig enemy_config, sim::FloorConfig floor_config);
 
     void OnEnter() override;
     std::unique_ptr<Scene> Tick(float fixed_dt, const input::PlayerInput& input) override;
     void Draw(const render::Renderer& renderer) const override;
 
 private:
+    void DrawRoom() const;
+    void DrawMinimap() const;
+
     std::uint32_t seed_;
     sim::EnemyConfig enemy_config_;
+    sim::FloorConfig floor_config_;
     sim::GameState state_;
     sim::PlayerId local_player_id_ = 0;
 };

@@ -3,6 +3,7 @@
 #include "input/PlayerInput.hpp"
 #include "render/Renderer.hpp"
 #include "sim/EnemyConfig.hpp"
+#include "sim/FloorConfig.hpp"
 #include "sim/FixedTimestep.hpp"
 
 #include <raylib.h>
@@ -26,6 +27,17 @@ infinity_dungeon::sim::EnemyConfig LoadEnemyConfigOrDefault() {
     }
 }
 
+// Floor layout lives in config/floor.json; same fallback behavior as above.
+infinity_dungeon::sim::FloorConfig LoadFloorConfigOrDefault() {
+    const auto path = std::filesystem::path(GetApplicationDirectory()) / "config" / "floor.json";
+    try {
+        return infinity_dungeon::sim::LoadFloorConfig(path);
+    } catch (const std::exception& e) {
+        std::fprintf(stderr, "%s; using built-in floor defaults\n", e.what());
+        return infinity_dungeon::sim::FloorConfig{};
+    }
+}
+
 } // namespace
 
 int main() {
@@ -33,7 +45,7 @@ int main() {
 
     infinity_dungeon::render::Renderer renderer(1280, 720, "InfinityDungeon");
     infinity_dungeon::app::SceneManager scenes(
-        std::make_unique<infinity_dungeon::app::MenuScene>(seed, LoadEnemyConfigOrDefault()));
+        std::make_unique<infinity_dungeon::app::MenuScene>(seed, LoadEnemyConfigOrDefault(), LoadFloorConfigOrDefault()));
     infinity_dungeon::sim::FixedTimestepClock clock(60.0f);
 
     while (!renderer.ShouldClose()) {

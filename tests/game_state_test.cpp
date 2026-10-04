@@ -8,10 +8,12 @@ using infinity_dungeon::input::PlayerInput;
 using infinity_dungeon::sim::GameState;
 using infinity_dungeon::sim::PlayerId;
 
-TEST_CASE("GameState generates the level for its starting depth") {
+TEST_CASE("GameState generates the floor for its starting depth") {
     const GameState state(42);
     CHECK(state.Depth() == 1);
-    CHECK_FALSE(state.Rooms().empty());
+    CHECK(state.CurrentFloor().depth == 1);
+    CHECK_FALSE(state.CurrentFloor().rooms.empty());
+    CHECK(state.CurrentRoomId() == state.CurrentFloor().start);
 }
 
 TEST_CASE("GameState moves a player by its input, scaled by the fixed step") {
@@ -70,8 +72,8 @@ TEST_CASE("GameState with an enemy wave is deterministic for the same seed and i
     GameState b(42);
     const PlayerId id_a = a.AddPlayer(0.0f, 0.0f);
     const PlayerId id_b = b.AddPlayer(0.0f, 0.0f);
-    a.SpawnInitialWave();
-    b.SpawnInitialWave();
+    a.SpawnWave();
+    b.SpawnWave();
 
     const std::unordered_map<PlayerId, PlayerInput> inputs_a{{id_a, PlayerInput{.move_x = 1.0f, .aim_x = 1.0f}}};
     const std::unordered_map<PlayerId, PlayerInput> inputs_b{{id_b, PlayerInput{.move_x = 1.0f, .aim_x = 1.0f}}};

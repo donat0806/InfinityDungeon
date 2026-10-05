@@ -94,6 +94,31 @@ EnemyConfig NoEnemies() {
     return config;
 }
 
+// Stationary, harmless, one-shot enemies, so a test can clear rooms reliably.
+EnemyConfig HarmlessEnemies(int count = 2) {
+    EnemyConfig config;
+    config.wave.count = count;
+    for (auto* stats : {&config.chaser, &config.shooter, &config.patroller}) {
+        stats->max_health = 1;
+        stats->move_speed = 0.0f;
+        stats->contact_damage = 0;
+        stats->projectile_damage = 0;
+    }
+    return config;
+}
+
+// Shoots the room's enemies one by one, closing in when they are out of range.
+void ClearRoom(GameState& state, PlayerId id) {
+    for (int i = 0; i < 6000 && !state.Enemies().empty(); ++i) {
+        const auto& player = state.Players()[0];
+        const auto& enemy = state.Enemies()[0];
+        const float dx = enemy.x - player.x;
+        const float dy = enemy.y - player.y;
+        const bool far = std::sqrt(dx * dx + dy * dy) > 300.0f;
+        state.Tick(kDt, {{id, PlayerInput{.move_x = far ? dx : 0.0f, .move_y = far ? dy : 0.0f, .aim_x = dx, .aim_y = dy}}});
+    }
+}
+
 } // namespace
 
 TEST_CASE("the player starts in an empty start room with only it visited") {
@@ -164,10 +189,27 @@ TEST_CASE("walking through a door enters the neighboring room at the opposite si
     }
 }
 
-TEST_CASE("a room spawns its wave on first entry and keeps its enemies when revisited") {
-    EnemyConfig config;
-    config.wave.count = 3;
-    GameState state(42, config);
+TEST_CASE("doors lock while a room has enemies") {
+    GameState state(42, HarmlessEnemies(3));
+    const PlayerId id = state.AddPlayer(0.0f, 0.0f);
+    CHECK_FALSE(state.DoorsLocked()); // the start room is empty
+    const auto& start_room = state.CurrentRoom();
+    const auto open = std::find(start_room.doors.begin(), start_room.doors.end(), true);
+    REQUIRE(open != start_room.doors.end());
+    const auto dir = static_cast<Direction>(open - start_room.doors.begin());
+
+    REQUIRE(Cross(state, id, dir));
+    const RoomId entered = state.CurrentRoomId();
+    REQUIRE(state.Enemies().size() == 3);
+    CHECK(state.DoorsLocked());
+
+    // The way back is shut too.
+    CHECK_FALSE(Cross(state, id, Opposite(dir)));
+    CHECK(state.CurrentRoomId() == entered);
+}
+
+TEST_CASE("clearing a room unlocks its doors and it stays cleared") {
+    GameState state(42, HarmlessEnemies(3));
     const PlayerId id = state.AddPlayer(0.0f, 0.0f);
     const auto& start_room = state.CurrentRoom();
     const auto open = std::find(start_room.doors.begin(), start_room.doors.end(), true);
@@ -175,36 +217,34 @@ TEST_CASE("a room spawns its wave on first entry and keeps its enemies when revi
     const auto dir = static_cast<Direction>(open - start_room.doors.begin());
 
     REQUIRE(Cross(state, id, dir));
-    REQUIRE(state.Enemies().size() == 3);
-    std::vector<infinity_dungeon::sim::EnemyId> ids;
-    for (const auto& enemy : state.Enemies()) {
-        ids.push_back(enemy.id);
-    }
+    const RoomId entered = state.CurrentRoomId();
+    ClearRoom(state, id);
+    REQUIRE(state.Enemies().empty());
+    CHECK_FALSE(state.DoorsLocked());
 
-    // Straight back out through the door we came in by: the start room is empty.
     REQUIRE(Cross(state, id, Opposite(dir)));
     CHECK(state.CurrentRoomId() == state.CurrentFloor().start);
-    CHECK(state.Enemies().empty());
-
     REQUIRE(Cross(state, id, dir));
-    REQUIRE(state.Enemies().size() == 3);
-    for (std::size_t i = 0; i < ids.size(); ++i) {
-        CHECK(state.Enemies()[i].id == ids[i]);
-    }
+    CHECK(state.CurrentRoomId() == entered);
+    CHECK(state.Enemies().empty());
+    CHECK_FALSE(state.DoorsLocked());
 }
 
-TEST_CASE("the exit hatch stays shut while enemies remain") {
-    EnemyConfig config;
-    config.wave.count = 1;
-    GameState state(42, config);
+TEST_CASE("the exit hatch stays shut until the exit room is cleared") {
+    GameState state(42, HarmlessEnemies(1));
     const PlayerId id = state.AddPlayer(0.0f, 0.0f);
     for (const Direction dir : PathToExit(state)) {
+        ClearRoom(state, id);
         REQUIRE(Cross(state, id, dir));
     }
 
     CHECK(state.CurrentRoomId() == state.CurrentFloor().exit);
     CHECK_FALSE(state.Enemies().empty());
+    CHECK(state.DoorsLocked());
     CHECK_FALSE(state.HatchOpen());
+
+    ClearRoom(state, id);
+    CHECK(state.HatchOpen());
 }
 
 TEST_CASE("stepping on the open hatch descends to a new floor") {
@@ -234,11 +274,10 @@ TEST_CASE("stepping on the open hatch descends to a new floor") {
 
 TEST_CASE("a whole walk through the floors is deterministic for the same seed") {
     auto run = [](std::uint32_t seed) {
-        EnemyConfig config;
-        config.wave.count = 2;
-        GameState state(seed, config);
+        GameState state(seed, HarmlessEnemies());
         const PlayerId id = state.AddPlayer(0.0f, 0.0f);
         for (const Direction dir : PathToExit(state)) {
+            ClearRoom(state, id);
             Cross(state, id, dir);
         }
         for (int i = 0; i < 120; ++i) {

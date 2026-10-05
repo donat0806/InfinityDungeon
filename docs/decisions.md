@@ -94,3 +94,12 @@ Projectiles carry a `Faction` (Player or Enemy) and a `damage` value, so one pro
 - Enemies spawn on first entry to a room (not the start room). Leaving a room mid-fight stashes its enemies, and they are restored on return rather than respawned. Projectiles are dropped on a room change.
 - Every player moves to the new room together and arrives just inside the opposite door, which keeps local co-op simple (no split-screen or per-player rooms).
 - Descending is a hatch in the middle of the exit room, usable once its enemies are dead. Depth feeds only the generator for now; difficulty scaling is a later item.
+
+## 2026-10-05: Doors lock while the room has enemies
+
+`GameState::DoorsLocked()` is simply `!enemies_.empty()`. A new room's wave spawns on first entry, which locks its doors; killing the last enemy unlocks them on the following tick. Locked doors are clamped like walls in `ConstrainToRoom` and drawn as a bar across the gap.
+
+- No per-room "cleared" flag: a room can't be left until it is empty, so every visited room is already cleared and `visited_` is enough to stop a wave respawning.
+- This supersedes the stash-and-restore of enemies from the 2026-10-04 floor entry; `stashed_enemies_` is removed.
+- Players arrive a few units inside the door, so nobody is caught in a doorway when it locks.
+- The exit hatch rule is unchanged (exit room with no enemies).

@@ -75,6 +75,9 @@ public:
     [[nodiscard]] RoomId CurrentRoomId() const { return current_room_; }
     [[nodiscard]] const Room& CurrentRoom() const { return floor_.rooms[current_room_]; }
     [[nodiscard]] bool Visited(RoomId id) const { return visited_[id]; }
+    // Doors stay shut until the current room is cleared, so a visited room is
+    // always a cleared one.
+    [[nodiscard]] bool DoorsLocked() const { return !enemies_.empty(); }
     // The exit hatch is usable once the exit room has been cleared.
     [[nodiscard]] bool HatchOpen() const { return current_room_ == floor_.exit && enemies_.empty(); }
     [[nodiscard]] const std::vector<Player>& Players() const { return players_; }
@@ -103,7 +106,6 @@ private:
     Floor floor_;
     RoomId current_room_ = 0;
     std::vector<bool> visited_;
-    std::vector<std::vector<Enemy>> stashed_enemies_; // per room, for rooms left mid-fight
     Arena arena_;
     Rng rng_;
     EnemyConfig config_;

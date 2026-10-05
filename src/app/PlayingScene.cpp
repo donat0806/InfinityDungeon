@@ -53,7 +53,8 @@ std::unique_ptr<Scene> PlayingScene::Tick(float fixed_dt, const input::PlayerInp
 namespace {
 
 // Draws one wall as two segments with a gap for the door, or as a single line.
-void DrawWall(Vector2 from, Vector2 to, bool has_door, float door_half, Color color) {
+// A locked door fills its gap with a bar.
+void DrawWall(Vector2 from, Vector2 to, bool has_door, bool locked, float door_half, Color color) {
     if (!has_door) {
         DrawLineEx(from, to, 3.0f, color);
         return;
@@ -65,6 +66,9 @@ void DrawWall(Vector2 from, Vector2 to, bool has_door, float door_half, Color co
     const Vector2 gap_b{mid.x + (to.x - from.x) * t, mid.y + (to.y - from.y) * t};
     DrawLineEx(from, gap_a, 3.0f, color);
     DrawLineEx(gap_b, to, 3.0f, color);
+    if (locked) {
+        DrawLineEx(gap_a, gap_b, 6.0f, MAROON);
+    }
 }
 
 } // namespace
@@ -77,10 +81,11 @@ void PlayingScene::DrawRoom() const {
     const Vector2 bottom_left = WorldToScreen(arena.min_x, arena.max_y);
     const Vector2 bottom_right = WorldToScreen(arena.max_x, arena.max_y);
     const float door = arena.door_half_width;
-    DrawWall(top_left, top_right, room.HasDoor(sim::Direction::North), door, GRAY);
-    DrawWall(top_right, bottom_right, room.HasDoor(sim::Direction::East), door, GRAY);
-    DrawWall(bottom_left, bottom_right, room.HasDoor(sim::Direction::South), door, GRAY);
-    DrawWall(top_left, bottom_left, room.HasDoor(sim::Direction::West), door, GRAY);
+    const bool locked = state_.DoorsLocked();
+    DrawWall(top_left, top_right, room.HasDoor(sim::Direction::North), locked, door, GRAY);
+    DrawWall(top_right, bottom_right, room.HasDoor(sim::Direction::East), locked, door, GRAY);
+    DrawWall(bottom_left, bottom_right, room.HasDoor(sim::Direction::South), locked, door, GRAY);
+    DrawWall(top_left, bottom_left, room.HasDoor(sim::Direction::West), locked, door, GRAY);
 
     if (state_.CurrentRoomId() == state_.CurrentFloor().exit) {
         const Vector2 center = WorldToScreen(0.0f, 0.0f);

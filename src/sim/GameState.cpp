@@ -104,7 +104,6 @@ GameState::GameState(std::uint32_t seed, EnemyConfig config, FloorConfig floor_c
     current_room_ = floor_.start;
     visited_.assign(floor_.rooms.size(), false);
     visited_[current_room_] = true;
-    stashed_enemies_.resize(floor_.rooms.size());
 }
 
 PlayerId GameState::AddPlayer(float x, float y) {
@@ -173,9 +172,10 @@ std::optional<Direction> GameState::ConstrainToRoom(Player& player) const {
     const float lo_y = arena_.min_y + r;
     const float hi_y = arena_.max_y - r;
 
-    // A door is passable only while the player is lined up with it.
-    const bool in_x_door = std::abs(player.y) <= span;
-    const bool in_y_door = std::abs(player.x) <= span;
+    // A door is passable only while it is unlocked and the player is lined up with it.
+    const bool unlocked = !DoorsLocked();
+    const bool in_x_door = unlocked && std::abs(player.y) <= span;
+    const bool in_y_door = unlocked && std::abs(player.x) <= span;
     if (!(room.HasDoor(Direction::West) && in_x_door)) {
         player.x = std::max(player.x, lo_x);
     }
@@ -216,8 +216,7 @@ void GameState::EnterRoom(Direction through) {
     if (!next) {
         return;
     }
-    stashed_enemies_[current_room_] = std::move(enemies_);
-    enemies_.clear();
+    // Doors only open in a cleared room, so there are no enemies to carry over.
     projectiles_.clear();
     current_room_ = *next;
 
@@ -246,10 +245,8 @@ void GameState::EnterRoom(Direction through) {
         }
     }
 
-    if (visited_[current_room_]) {
-        enemies_ = std::move(stashed_enemies_[current_room_]);
-        stashed_enemies_[current_room_].clear();
-    } else {
+    // Entering a new room spawns its wave, which locks the doors behind the party.
+    if (!visited_[current_room_]) {
         visited_[current_room_] = true;
         SpawnWave();
     }
@@ -260,7 +257,6 @@ void GameState::StartFloor() {
     current_room_ = floor_.start;
     visited_.assign(floor_.rooms.size(), false);
     visited_[current_room_] = true;
-    stashed_enemies_.assign(floor_.rooms.size(), {});
     enemies_.clear();
     projectiles_.clear();
     for (auto& player : players_) {

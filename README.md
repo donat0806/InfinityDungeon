@@ -101,7 +101,7 @@ ctest --test-dir build --output-on-failure -C Release
 - [x] Player movement and shooting
 - [x] First enemy types
 - [x] Procedural floor generation from a seed
-- [ ] Room clearing and locked doors
+- [x] Room clearing and locked doors
 - [ ] Depth-based difficulty scaling
 - [ ] Death screen and score
 - [ ] Determinism test (same seed + inputs = same result)
